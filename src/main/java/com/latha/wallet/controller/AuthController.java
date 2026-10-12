@@ -1,5 +1,7 @@
 package com.latha.wallet.controller;
 
+import com.latha.wallet.dto.LoginRequest;
+import com.latha.wallet.dto.LoginResponse;
 import com.latha.wallet.dto.RegisterRequest;
 import com.latha.wallet.dto.UserResponse;
 import com.latha.wallet.service.AuthService;
@@ -22,5 +24,10 @@ public class AuthController {
     @PostMapping("/register")
     public ResponseEntity<UserResponse> register(@Valid @RequestBody RegisterRequest r) {
         return ResponseEntity.status(HttpStatus.CREATED).body(authService.register(r));
+    }
+
+    @PostMapping("/login")
+    public LoginResponse login(@Valid @RequestBody LoginRequest r) {
+        return authService.login(r);
     }
 }
