@@ -1,6 +1,9 @@
 package com.latha.wallet.exception;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.LockedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -24,6 +27,33 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(AccountFrozenException.class)
     public ResponseEntity<Map<String, String>> frozen(AccountFrozenException e) {
         return ResponseEntity.status(403).body(Map.of("error", e.getMessage()));
+    }
+
+    @ExceptionHandler(InsufficientBalanceException.class)
+    public ResponseEntity<Map<String, String>> insufficient(InsufficientBalanceException e) {
+        return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+    }
+
+    @ExceptionHandler(BadRequestException.class)
+    public ResponseEntity<Map<String, String>> badRequest(BadRequestException e) {
+        return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+    }
+
+    @ExceptionHandler(BadCredentialsException.class)
+    public ResponseEntity<Map<String, String>> badCredentials(BadCredentialsException e) {
+        return ResponseEntity.status(401).body(Map.of("error", "Invalid email or password"));
+    }
+
+    @ExceptionHandler(LockedException.class)
+    public ResponseEntity<Map<String, String>> locked(LockedException e) {
+        return ResponseEntity.status(403).body(Map.of("error", "Account is frozen"));
+    }
+
+    // Two requests changed the same wallet at the same time (optimistic locking via @Version)
+    @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
+    public ResponseEntity<Map<String, String>> concurrentUpdate(ObjectOptimisticLockingFailureException e) {
+        return ResponseEntity.status(409)
+                .body(Map.of("error", "Wallet was updated by another request. Please retry."));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
