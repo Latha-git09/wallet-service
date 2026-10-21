@@ -1,5 +1,6 @@
 package com.latha.wallet.exception;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -54,6 +55,13 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, String>> concurrentUpdate(ObjectOptimisticLockingFailureException e) {
         return ResponseEntity.status(409)
                 .body(Map.of("error", "Wallet was updated by another request. Please retry."));
+    }
+
+    // Same Idempotency-Key sent twice at the same instant: the unique constraint rejects the second one
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<Map<String, String>> duplicateRequest(DataIntegrityViolationException e) {
+        return ResponseEntity.status(409)
+                .body(Map.of("error", "Duplicate or conflicting request. If you retried a transfer, check your transactions."));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

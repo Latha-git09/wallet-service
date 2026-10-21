@@ -22,6 +22,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -69,11 +70,28 @@ public class WalletService {
      * Wallet has a @Version column, so if two requests change the same wallet at the same
      * time, the second one fails with an optimistic locking error (HTTP 409) instead of
      * silently overwriting the balance (no double spending).
+     *
+     * Idempotency: if the client sends an Idempotency-Key and we already processed that key,
+     * we return the original result and do NOT move money again (safe retries after a timeout).
+     * The unique column on idempotencyKey also protects against two identical requests racing.
      */
     @Transactional
-    public TransactionResponse transfer(String senderEmail, TransferRequest r) {
+    public TransactionResponse transfer(String senderEmail, TransferRequest r, String idempotencyKey) {
         if (senderEmail.equalsIgnoreCase(r.toEmail())) {
             throw new BadRequestException("You cannot transfer money to yourself");
+        }
+
+        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+            Optional<WalletTransaction> existing = txnRepo.findByIdempotencyKey(idempotencyKey);
+            if (existing.isPresent()) {
+                WalletTransaction old = existing.get();
+                boolean sameSender = old.getFromWallet() != null
+                        && old.getFromWallet().getUser().getEmail().equalsIgnoreCase(senderEmail);
+                if (!sameSender) {
+                    throw new BadRequestException("Idempotency key already used");
+                }
+                return toResponse(old);
+            }
         }
 
         Wallet from = getWallet(senderEmail);
@@ -97,6 +115,7 @@ public class WalletService {
         txn.setToWallet(to);
         txn.setAmount(r.amount());
         txn.setType(TxnType.TRANSFER);
+        txn.setIdempotencyKey(idempotencyKey == null || idempotencyKey.isBlank() ? null : idempotencyKey);
         txn.setStatus(TxnStatus.SUCCESS);
         return toResponse(txnRepo.save(txn));
     }
